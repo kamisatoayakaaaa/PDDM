@@ -7,6 +7,7 @@ import torch.linalg as linalg
 from tqdm import tqdm
 
 
+#这些是辅助函数，默认用cpu跑
 def extract_conv(
     weight: torch.Tensor,#nn.Parameter|torch.Tensor,
     mode = 'fixed',
