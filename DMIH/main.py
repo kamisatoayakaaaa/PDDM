@@ -1,3 +1,4 @@
+#训练从此处开始
 import argparse
 import yaml
 import sys
@@ -56,6 +57,14 @@ def parse_args_and_config():
         default=1,
         help="eta used to control the variances of sigma"
     )
+    # 🔹 新增：可选 HuggingFace 扩散模型 id
+    parser.add_argument(
+        "--hf_model_id",
+        type=str,
+        default=None,
+        help="(可选) HuggingFace 预训练扩散模型 id，例如 'google/ddpm-cifar10-32'"
+    )
+
     args = parser.parse_args()
     with open(os.path.join("configs", args.config), "r") as f:
         config = yaml.safe_load(f)

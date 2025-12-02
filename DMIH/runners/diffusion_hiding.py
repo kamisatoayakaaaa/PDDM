@@ -19,6 +19,7 @@ import torch.nn as nn
 import copy
 from .ext_acc import cal_ext_acc
 from .md_fidelity import cal_md_fidelity
+from diffusers import DDPMPipeline
 
 
 class Diffusion(object):
@@ -37,6 +38,8 @@ class Diffusion(object):
         self.psl_iters = config.hiding.select_iters
         self.psl_lr = config.hiding.select_lr
         self.key = config.hiding.seed
+        self.hf_model_id = getattr(self.args, "hf_model_id", None)
+        self.use_hf_teacher = self.hf_model_id is not None
         if not os.path.exists(self.args.output_folder):
             os.makedirs(self.args.output_folder)
         if device is None:
@@ -89,9 +92,15 @@ class Diffusion(object):
             name = f"lsun_{self.config.data.category}"
         else:
             raise ValueError
-        self.ckpt = get_ckpt_path(f"ema_{name}")
 
-    def param_select(self):
+        # 只有在不用 HF teacher 的时候才需要本地 ema ckpt
+        if not self.use_hf_teacher:
+            self.ckpt = get_ckpt_path(f"ema_{name}")
+        else:
+            self.ckpt = None
+
+
+    def param_select(self):            
         args, config = self.args, self.config
 
         dataset, _  = get_dataset(args, config)
@@ -102,16 +111,36 @@ class Diffusion(object):
             num_workers=config.data.num_workers,
         )
 
-        model = Model(config).to(self.device)
-        model_ref = Model(config).to(self.device)
+        # 如果指定了 hf_model_id，则用 HuggingFace 的 UNet 作为基座
+        if self.hf_model_id is not None:
+            # 这里会顺带把 self.betas / self.num_timesteps 换成 HF scheduler 的设置
+            model = self._load_hf_unet_and_scheduler()
+            model = model.to(self.device)
 
-        optimizer = get_optimizer(self.config, model.parameters())
+            # param_select 里原本有一个 model_ref，但这里只用于 sensitivity 计算中的参考；
+            # 对 HF 分支我们就简单用一个 frozen 的 deep copy
+            model_ref = copy.deepcopy(model).to(self.device)
+            model_ref.eval()
+            for p in model_ref.parameters():
+                p.requires_grad_(False)
 
+            # 优化器简单用 Adam，学习率沿用原来的 select_lr
+            optimizer = torch.optim.Adam(model.parameters(), lr=self.psl_lr)
+
+        else:
+            # 原始 DMIH 路线：用本地 Model(config) + ema ckpt
+            model = Model(config).to(self.device)
+            model_ref = Model(config).to(self.device)
+
+            optimizer = get_optimizer(self.config, model.parameters())
+
+            states = torch.load(self.ckpt, map_location=self.device)
+            model.load_state_dict(states)
+            model_ref.load_state_dict(states)
+
+        # 两种分支都共用一套 grad_dict 逻辑
         grad_dict = {name: 0. for name, _ in model.named_parameters()}
 
-        states = torch.load(self.ckpt, map_location=self.device)
-        model.load_state_dict(states)
-        model_ref.load_state_dict(states)
 
         for name, param in model_ref.named_parameters():
             param.requires_grad = False
@@ -121,24 +150,43 @@ class Diffusion(object):
         start = time.time()
         print("Calculating sensitivity...")
         for _ in range(self.psl_iters):
-            (x, y) = next(data_iterator)
-            x_tar = self.secret_img.to(self.device)
-            model.train()
+            try:
+                (x, y) = next(data_iterator)
+            except StopIteration:
+                data_iterator = iter(train_loader)
+                (x, y) = next(data_iterator)
 
-            e_fixed = self.zs.to(self.device)
+            x = x.to(self.device)
+            x = data_transform(self.config, x)
 
+            # 以 dataloader 的 batch size 为准
+            bs = x.shape[0]
+
+            x_tar = self.secret_img.to(self.device)[:bs]
+            e_fixed = self.zs.to(self.device)[:bs]
+
+            # t / t_fixed 也全部用同一个 bs
             t = torch.randint(
-                low=0, high=self.num_timesteps, size=(x_tar.shape[0],)
-            ).to(self.device)
+                low=0, high = (self.num_timesteps), size=(bs,), device=self.device
+            )
 
             b = self.betas.to(self.device)
-            t_fixed = torch.ones_like(t).to(self.device) * self.ts
-            t_fixed = t_fixed + self.config.hiding.ts_interval * torch.tensor(list(range(t_fixed.shape[0]))).to(self.device)
+            t_fixed = torch.ones_like(t, device=self.device) * self.ts
+            t_fixed = t_fixed + self.config.hiding.ts_interval * torch.arange(bs, device=self.device)
 
-            assert e_fixed.shape[0] == x_tar.shape[0]
-            assert e_fixed.shape[0] == t_fixed.shape[0]
+            assert x_tar.shape[0] == e_fixed.shape[0] == t_fixed.shape[0] == bs
 
-            loss = hiding_loss(model=model, model_ref=model_ref, x0=x, t=t, b=b, x_tar=x_tar, t_fixed=t_fixed, e_fixed=e_fixed, lbd=self.lbd)
+            loss = hiding_loss(
+                model=model,
+                model_ref=model_ref,
+                x0=x,
+                t=t,
+                b=b,
+                x_tar=x_tar,
+                t_fixed=t_fixed,
+                e_fixed=e_fixed,
+                lbd=self.lbd,
+            )
 
             loss_value = loss.item()
             if not math.isfinite(loss_value):
@@ -219,8 +267,18 @@ class Diffusion(object):
             num_workers=config.data.num_workers,
         )
 
-        model = Model(config).to(self.device)
-        model_ref = Model(config).to(self.device)
+        # 🔹 和 param_select 一样：如果有 hf_model_id，就用 HuggingFace 的 UNet
+        if getattr(self, "hf_model_id", None) is not None:
+            # 这里会同步 self.betas 和 self.num_timesteps
+            model = self._load_hf_unet_and_scheduler().to(self.device)
+            model_ref = copy.deepcopy(model).to(self.device)
+            model_ref.eval()
+            for p in model_ref.parameters():
+                p.requires_grad_(False)
+        else:
+            # 原始 DMIH 路线：本地 Model(config) + ema ckpt
+            model = Model(config).to(self.device)
+            model_ref = Model(config).to(self.device)
 
         sensitivity_path = os.path.join(self.args.output_folder, 'param_req_{}.pth'.format(self.param_ratio))
         param_info = torch.load(sensitivity_path, map_location='cpu')
@@ -252,15 +310,20 @@ class Diffusion(object):
             sens_layer.append(layer_name_list[test_list.index(ele)])
 
         
-        states = torch.load(self.ckpt, map_location=self.device)
-        model.load_state_dict(states)
-        model_ref.load_state_dict(states)
+        # 🔹 只有在“本地模型”模式下才用原来的 ema ckpt
+        if getattr(self, "hf_model_id", None) is None:
+            states = torch.load(self.ckpt, map_location=self.device)
+            model.load_state_dict(states)
+            model_ref.load_state_dict(states)
 
+        # model_ref 始终是冻结的参考模型
         for name, param in model_ref.named_parameters():
             param.requires_grad = False
 
+        # 主模型的底座参数也先全部冻结，后面只训练 LoRA
         for name, param in model.named_parameters():
             param.requires_grad = False
+
 
         from locon.locon_kohya import create_network
         lora_network = create_network(unet=model, sens_module=sens_layer, network_dim=self.lora_dim, conv_dim=self.locon_dim)
@@ -272,33 +335,52 @@ class Diffusion(object):
         best_loss = float('inf')
         start = time.time()
         print("Hiding secret image...")
-        for i in range(self.config.hiding.n_iters * self.config.hiding.n_secrets):
-            (x, y) = next(data_iterator)
-            x_tar = self.secret_img.to(self.device)
+
+        total_steps = self.config.hiding.n_iters * self.config.hiding.n_secrets
+
+        for i in range(total_steps):
+            # ---- 关键改动：捕获 StopIteration，重新创建 iterator ----
+            try:
+                (x, y) = next(data_iterator)
+            except StopIteration:
+                data_iterator = iter(train_loader)
+                (x, y) = next(data_iterator)
+            # ---------------------------------------------------------
 
             x = x.to(self.device)
             x = data_transform(self.config, x)
+            bs = x.shape[0]
 
-            e_fixed = self.zs.to(self.device)
+            x_tar   = self.secret_img.to(self.device)[:bs]
+            e_fixed = self.zs.to(self.device)[:bs]
 
             t = torch.randint(
-                low=0, high=self.num_timesteps, size=(x_tar.shape[0],)
-            ).to(self.device)
+                low=0,
+                high=self.num_timesteps,
+                size=(bs,),
+                device=self.device,
+            )
 
             b = self.betas
-            t_fixed = torch.ones_like(t).to(self.device) * self.ts
-            t_fixed = t_fixed + self.config.hiding.ts_interval * torch.tensor(list(range(t_fixed.shape[0]))).to(self.device)
+            t_fixed = torch.ones_like(t, device=self.device) * self.ts
+            t_fixed = t_fixed + self.config.hiding.ts_interval * torch.arange(bs, device=self.device)
 
-            assert e_fixed.shape[0] == x_tar.shape[0]
-            assert e_fixed.shape[0] == t_fixed.shape[0]
+            assert e_fixed.shape[0] == x_tar.shape[0] == t_fixed.shape[0]
 
             lora_network.apply_to()
 
-            loss = hiding_loss(model=model, model_ref=model_ref, x0=x, t=t, b=b, x_tar=x_tar, t_fixed=t_fixed, e_fixed=e_fixed, lbd=self.lbd)
+            loss = hiding_loss(
+                model=model,
+                model_ref=model_ref,
+                x0=x,
+                t=t,
+                b=b,
+                x_tar=x_tar,
+                t_fixed=t_fixed,
+                e_fixed=e_fixed,
+                lbd=self.lbd,
+            )
 
-            # if (i+1) % self.config.hiding.snapshot_freq == 0:
-            #     print("Iterations: {}, loss: {}, best loss: {}".format(i+1, loss.item(), best_loss))
-                
             if loss.item() < best_loss:
                 best_loss = loss.item()
                 model_best = model
@@ -311,7 +393,7 @@ class Diffusion(object):
         hours, rem = divmod(end-start, 3600)
         minutes, seconds = divmod(rem, 60)
         print("Time cost for hiding process: {:0>2} hours {:0>2} minutes {:05.2f} seconds!".format(int(hours), int(minutes), seconds))
-
+        #现在保存的模型是加入过lora的
         model_copy = copy.deepcopy(model_best)
         merge_locon(
             model_copy,
@@ -507,7 +589,7 @@ class Diffusion(object):
                 seq = [int(s) for s in list(seq)]
             else:
                 raise NotImplementedError
-            from functions.denoising import ddpm_steps
+            from functions.denoising_tmp import ddpm_steps
 
             x = ddpm_steps(x, seq, model, self.betas)
         else:
@@ -518,6 +600,50 @@ class Diffusion(object):
 
         return x
 
+    def _load_hf_unet_and_scheduler(self):
+        """
+        用 HuggingFace 的 DDPMPipeline 加载一个预训练扩散模型，
+        并且包装成一个“返回 Tensor 的普通 UNet”，
+        这样就可以直接喂给 hiding_loss / LoRA / sample_image 使用。
+        """
+        assert self.hf_model_id is not None, "hf_model_id 为空，不能加载 HF 模型。"
+
+        # 1. 加载 HF pipeline
+        pipe = DDPMPipeline.from_pretrained(self.hf_model_id)
+        pipe.to(self.device)
+
+        # 2. 用 HF 的 scheduler 同步 betas 和步数
+        scheduler = pipe.scheduler
+        self.betas = scheduler.betas.to(self.device)
+
+        # 注意：新版 diffusers 推荐用 config.num_train_timesteps
+        num_train_timesteps = getattr(scheduler.config, "num_train_timesteps", None)
+        if num_train_timesteps is None:
+            # 兼容旧版本
+            num_train_timesteps = scheduler.num_train_timesteps
+        self.num_timesteps = int(num_train_timesteps)
+
+        # 3. 包一层 wrapper，让 forward 返回 Tensor
+        class HFUNetWrapper(nn.Module):
+            def __init__(self, unet):
+                super().__init__()
+                self.unet = unet
+
+            def forward(self, x, t):
+                # 确保 t 是张量，并在正确的 device 上
+                if not torch.is_tensor(t):
+                    t = torch.tensor([t], device=x.device, dtype=torch.long).repeat(x.size(0))
+                else:
+                    t = t.to(device=x.device)
+
+                out = self.unet(x, t)
+                # HuggingFace UNet2DModel 返回 UNet2DOutput(sample=...)
+                if hasattr(out, "sample"):
+                    return out.sample
+                return out
+
+        # 返回一个“看起来”跟你原来的 Model 一样的 UNet
+        return HFUNetWrapper(pipe.unet)
 
 def compute_alpha(beta, t):
     beta = torch.cat([torch.zeros(1).to(beta.device), beta], dim=0)

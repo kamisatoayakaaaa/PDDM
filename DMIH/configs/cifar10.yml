@@ -30,14 +30,14 @@ diffusion:
     num_diffusion_timesteps: 1000
 
 hiding:
-    n_iters: 2000
-    n_secrets: 1
+    n_iters: 500
+    n_secrets: 12
     sparsity: 0.01
     n_layers: 15
     lora_lr: 0.0001
     lbd: 1.0
-    ts: 500
-    ts_interval: 100
+    ts: 200
+    ts_interval: 50
     loraplus_lr_ratio: 20
     rank: 64
     select_iters: 50
