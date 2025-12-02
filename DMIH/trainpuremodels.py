@@ -1,339 +1,225 @@
 import os
+import time
 import math
 import argparse
-import time
-from datetime import datetime
+import yaml
+import json
+import random
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-
-class SinusoidalPosEmb(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        self.dim = dim
-
-    def forward(self, t):
-        device = t.device
-        half_dim = self.dim // 2
-        emb_scale = math.log(10000) / (half_dim - 1)
-        emb = torch.exp(torch.arange(half_dim, device=device) * -emb_scale)
-        emb = t.float().unsqueeze(1) * emb.unsqueeze(0)
-        emb = torch.cat([emb.sin(), emb.cos()], dim=-1)
-        if self.dim % 2 == 1:
-            emb = F.pad(emb, (0, 1))
-        return emb
+from models.diffusion import Model
 
 
-class ResBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, time_emb_dim, groups=8):
-        super().__init__()
-        self.norm1 = nn.GroupNorm(groups, in_channels)
-        self.act1 = nn.SiLU()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, padding=1)
-        self.time_mlp = nn.Linear(time_emb_dim, out_channels)
-        self.norm2 = nn.GroupNorm(groups, out_channels)
-        self.act2 = nn.SiLU()
-        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1)
-        if in_channels != out_channels:
-            self.skip = nn.Conv2d(in_channels, out_channels, 1)
-        else:
-            self.skip = nn.Identity()
-
-    def forward(self, x, t_emb):
-        h = self.norm1(x)
-        h = self.act1(h)
-        h = self.conv1(h)
-        time_emb = self.time_mlp(t_emb).unsqueeze(-1).unsqueeze(-1)
-        h = h + time_emb
-        h = self.norm2(h)
-        h = self.act2(h)
-        h = self.conv2(h)
-        return h + self.skip(x)
+# ---- 全局 transform，避免在函数里定义 lambda 导致多进程无法 pickle ----
+CIFAR_TRAIN_TRANSFORM = transforms.Compose([
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    # x in [0,1] -> (x - 0.5) / 0.5 in [-1,1]
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+])
 
 
-class DownBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, time_emb_dim, down=True):
-        super().__init__()
-        self.res1 = ResBlock(in_channels, out_channels, time_emb_dim)
-        self.res2 = ResBlock(out_channels, out_channels, time_emb_dim)
-        if down:
-            self.downsample = nn.Conv2d(out_channels, out_channels, 3, stride=2, padding=1)
-        else:
-            self.downsample = nn.Identity()
-
-    def forward(self, x, t_emb):
-        h = self.res1(x, t_emb)
-        h = self.res2(h, t_emb)
-        skip = h
-        h = self.downsample(h)
-        return h, skip
+def dict2namespace(config_dict):
+    namespace = argparse.Namespace()
+    for key, value in config_dict.items():
+        if isinstance(value, dict):
+            value = dict2namespace(value)
+        setattr(namespace, key, value)
+    return namespace
 
 
-class UpBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, time_emb_dim, up=True):
-        super().__init__()
-        self.res1 = ResBlock(in_channels, out_channels, time_emb_dim)
-        self.res2 = ResBlock(out_channels, out_channels, time_emb_dim)
-        if up:
-            self.upsample = nn.ConvTranspose2d(out_channels, out_channels, 4, stride=2, padding=1)
-        else:
-            self.upsample = nn.Identity()
-
-    def forward(self, x, skip, t_emb):
-        h = torch.cat([x, skip], dim=1)
-        h = self.res1(h, t_emb)
-        h = self.res2(h, t_emb)
-        h = self.upsample(h)
-        return h
+def load_config(cfg_name):
+    cfg_path = os.path.join("configs", cfg_name)
+    with open(cfg_path, "r") as f:
+        cfg = yaml.safe_load(f)
+    cfg_ns = dict2namespace(cfg)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    cfg_ns.device = device
+    return cfg_ns
 
 
-class UNet(nn.Module):
-    def __init__(self, in_channels=3, base_channels=128, channel_mults=(1, 2, 2, 4), time_emb_dim=256):
-        super().__init__()
-        self.time_mlp = nn.Sequential(
-            SinusoidalPosEmb(time_emb_dim),
-            nn.Linear(time_emb_dim, time_emb_dim * 4),
-            nn.SiLU(),
-            nn.Linear(time_emb_dim * 4, time_emb_dim),
-        )
-        self.conv_in = nn.Conv2d(in_channels, base_channels * channel_mults[0], 3, padding=1)
-        self.downs = nn.ModuleList()
-        in_ch = base_channels * channel_mults[0]
-        self.skip_channels = []
-        for i, mult in enumerate(channel_mults):
-            out_ch = base_channels * mult
-            down = i != len(channel_mults) - 1
-            self.downs.append(DownBlock(in_ch, out_ch, time_emb_dim, down=down))
-            self.skip_channels.append(out_ch)
-            in_ch = out_ch
-        self.mid_block1 = ResBlock(in_ch, in_ch, time_emb_dim)
-        self.mid_block2 = ResBlock(in_ch, in_ch, time_emb_dim)
-        self.ups = nn.ModuleList()
-        rev_skips = list(reversed(self.skip_channels))
-        curr_ch = in_ch
-        for i, skip_ch in enumerate(rev_skips):
-            up = i != len(rev_skips) - 1
-            block_in = curr_ch + skip_ch
-            block_out = skip_ch
-            self.ups.append(UpBlock(block_in, block_out, time_emb_dim, up=up))
-            curr_ch = block_out
-        self.conv_out = nn.Sequential(
-            nn.GroupNorm(8, curr_ch),
-            nn.SiLU(),
-            nn.Conv2d(curr_ch, in_channels, 3, padding=1),
-        )
-
-    def forward(self, x, t):
-        t_emb = self.time_mlp(t)
-        h = self.conv_in(x)
-        skips = []
-        for down in self.downs:
-            h, skip = down(h, t_emb)
-            skips.append(skip)
-        h = self.mid_block1(h, t_emb)
-        h = self.mid_block2(h, t_emb)
-        for up in self.ups:
-            skip = skips.pop()
-            h = up(h, skip, t_emb)
-        return self.conv_out(h)
+def get_next_run_dir(base_dir):
+    os.makedirs(base_dir, exist_ok=True)
+    existing = [d for d in os.listdir(base_dir)
+                if d.startswith("train") and os.path.isdir(os.path.join(base_dir, d))]
+    idx = 1
+    while f"train{idx}" in existing:
+        idx += 1
+    run_dir = os.path.join(base_dir, f"train{idx}")
+    os.makedirs(run_dir, exist_ok=False)
+    return run_dir
 
 
-def get_dataloader(data_root, batch_size, num_workers):
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ]
-    )
-    dataset = datasets.CIFAR10(
+def get_beta_schedule(beta_schedule, beta_start, beta_end, num_diffusion_timesteps):
+    if beta_schedule == "linear":
+        betas = np.linspace(beta_start, beta_end, num_diffusion_timesteps, dtype=np.float64)
+    else:
+        raise NotImplementedError(beta_schedule)
+    assert betas.shape == (num_diffusion_timesteps,)
+    return betas
+
+
+def build_dataloader(data_root, batch_size, num_workers):
+    # 注意：transform 用的是上面定义的全局 CIFAR_TRAIN_TRANSFORM，
+    # 里面没有 lambda，不会触发 Windows 多进程 pickle 报错。
+    train_set = datasets.CIFAR10(
         root=data_root,
         train=True,
         download=False,
-        transform=transform,
+        transform=CIFAR_TRAIN_TRANSFORM,
     )
+
+    # 为了更稳一点，如果在 Windows 上且 num_workers > 0，可以强制改成 0
+    if os.name == "nt" and num_workers > 0:
+        print(f"[Info] Detected Windows. For safety, overriding num_workers={num_workers} -> 0")
+        num_workers = 0
+
     loader = DataLoader(
-        dataset,
+        train_set,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=torch.cuda.is_available(),
         drop_last=True,
     )
     return loader
 
 
-def set_seed(seed):
-    if seed is None:
-        return
-    import random
-    import numpy as np
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
-
-def get_next_run_dir(base_dir):
-    os.makedirs(base_dir, exist_ok=True)
-    existing = [
-        d for d in os.listdir(base_dir)
-        if os.path.isdir(os.path.join(base_dir, d)) and d.startswith("train")
-    ]
-    max_idx = 0
-    for d in existing:
-        tail = d[5:]
-        if tail.isdigit():
-            max_idx = max(max_idx, int(tail))
-    run_name = f"train{max_idx + 1}"
-    run_dir = os.path.join(base_dir, run_name)
-    os.makedirs(run_dir, exist_ok=False)
-    return run_dir, run_name
-
-
 def train(args):
-    set_seed(args.seed)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    config = load_config(args.config)
+    device = config.device
 
-    run_dir, run_name = get_next_run_dir(args.out_root)
+    base_run_dir = os.path.join(os.path.dirname(__file__), "pure_model")
+    run_dir = get_next_run_dir(base_run_dir)
     print(f"run_dir: {run_dir}")
 
-    model = UNet(
-        in_channels=3,
-        base_channels=args.base_channels,
-        channel_mults=tuple(args.channel_mults),
-        time_emb_dim=args.time_emb_dim,
-    ).to(device)
+    # 固定随机种子
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
 
-    betas = torch.linspace(args.beta_start, args.beta_end, args.num_train_timesteps, device=device)
+    dataloader = build_dataloader(args.data_root, args.batch_size, args.num_workers)
+
+    model = Model(config).to(device)
+    model.train()
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
+    betas = get_beta_schedule(
+        beta_schedule=config.diffusion.beta_schedule,
+        beta_start=config.diffusion.beta_start,
+        beta_end=config.diffusion.beta_end,
+        num_diffusion_timesteps=config.diffusion.num_diffusion_timesteps,
+    )
+    betas = torch.from_numpy(betas).float().to(device)
     alphas = 1.0 - betas
     alphas_cumprod = torch.cumprod(alphas, dim=0)
+    sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+    sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - alphas_cumprod)
+    num_timesteps = betas.shape[0]
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=args.lr,
-        weight_decay=args.weight_decay,
-        betas=(0.9, 0.999),
-    )
-
-    dataloader = get_dataloader(args.data_root, args.batch_size, args.num_workers)
-
-    best_loss = float("inf")
     global_step = 0
-    epoch_losses = []
+    best_loss = float("inf")
+    best_state = None
+    history = []
 
-    model.train()
-    for epoch in range(args.epochs):
+    for epoch in range(1, args.epochs + 1):
         epoch_loss = 0.0
-        t0 = time.time()
-        for x, _ in dataloader:
+        num_batches = 0
+        start_time = time.time()
+
+        for batch in dataloader:
+            x, _ = batch
             x = x.to(device)
-            b = x.size(0)
 
             noise = torch.randn_like(x)
-            timesteps = torch.randint(
-                0,
-                args.num_train_timesteps,
-                (b,),
+            bsz = x.size(0)
+            t = torch.randint(
+                low=0,
+                high=num_timesteps,
+                size=(bsz,),
                 device=device,
-            ).long()
+            )
 
-            alpha_bar = alphas_cumprod[timesteps]
-            sqrt_alpha_bar = alpha_bar.sqrt().view(b, 1, 1, 1)
-            sqrt_one_minus_alpha_bar = (1.0 - alpha_bar).sqrt().view(b, 1, 1, 1)
-            x_t = sqrt_alpha_bar * x + sqrt_one_minus_alpha_bar * noise
+            sqrt_ac = sqrt_alphas_cumprod[t].view(bsz, 1, 1, 1)
+            sqrt_om = sqrt_one_minus_alphas_cumprod[t].view(bsz, 1, 1, 1)
+            x_t = sqrt_ac * x + sqrt_om * noise
 
-            noise_pred = model(x_t, timesteps)
+            noise_pred = model(x_t, t.float())
             loss = F.mse_loss(noise_pred, noise)
 
-            optimizer.zero_grad(set_to_none=True)
+            optimizer.zero_grad()
             loss.backward()
             if args.grad_clip is not None and args.grad_clip > 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
             optimizer.step()
 
+            loss_val = loss.item()
+            epoch_loss += loss_val
+            num_batches += 1
             global_step += 1
-            epoch_loss += loss.item() * b
 
-            if global_step % args.log_interval == 0:
-                print(f"epoch {epoch} step {global_step} loss {loss.item():.4f}")
+        epoch_loss /= max(1, num_batches)
+        elapsed = time.time() - start_time
 
-            if loss.item() < best_loss:
-                best_loss = loss.item()
-                torch.save(
-                    {"model": model.state_dict()},
-                    os.path.join(run_dir, "best.pth"),
-                )
+        history.append(
+            {
+                "epoch": epoch,
+                "loss": epoch_loss,
+                "time_sec": elapsed,
+            }
+        )
 
-        epoch_loss = epoch_loss / len(dataloader.dataset)
-        epoch_losses.append(epoch_loss)
-        t1 = time.time()
-        print(f"epoch {epoch} mean_loss {epoch_loss:.4f} best_loss {best_loss:.4f} time {t1 - t0:.1f}s")
+        print(f"Epoch {epoch}/{args.epochs}  loss={epoch_loss:.6f}  time={elapsed:.2f}s")
 
-    torch.save(
-        {"model": model.state_dict(), "optimizer": optimizer.state_dict()},
-        os.path.join(run_dir, "last.pth"),
-    )
+        if epoch_loss < best_loss:
+            best_loss = epoch_loss
+            # 存 CPU 版 state dict，避免显存占用
+            best_state = {k: v.cpu() for k, v in model.state_dict().items()}
 
-    summary_path = os.path.join(run_dir, "summary.md")
-    with open(summary_path, "w", encoding="utf-8") as f:
-        f.write("# Pure CIFAR-10 Diffusion Training\n\n")
-        f.write(f"- run_name: {run_name}\n")
-        f.write(f"- run_dir: `{run_dir}`\n")
-        f.write(f"- datetime: {datetime.now().isoformat(sep=' ', timespec='seconds')}\n")
-        f.write(f"- device: {device}\n")
+    best_path = os.path.join(run_dir, "best.pth")
+    torch.save(best_state, best_path)
+
+    log_path = os.path.join(run_dir, "train_log.md")
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write("# Diffusion base model training\n\n")
+        f.write(f"- config: `{args.config}`\n")
+        f.write(f"- data_root: `{args.data_root}`\n")
         f.write(f"- epochs: {args.epochs}\n")
         f.write(f"- batch_size: {args.batch_size}\n")
-        f.write(f"- num_train_timesteps: {args.num_train_timesteps}\n")
-        f.write(f"- beta_start: {args.beta_start}\n")
-        f.write(f"- beta_end: {args.beta_end}\n")
-        f.write(f"- base_channels: {args.base_channels}\n")
-        f.write(f"- channel_mults: {list(args.channel_mults)}\n")
-        f.write(f("- time_emb_dim: {}\n").format(args.time_emb_dim))
-        f.write(f("- lr: {args.lr}\n"))
-        f.write(f("- weight_decay: {args.weight_decay}\n"))
-        f.write(f("- grad_clip: {args.grad_clip}\n"))
-        f.write(f("- data_root: `{args.data_root}`\n"))
-        f.write(f("\nBest step loss: {best_loss:.6f}\n\n"))
-        f.write("## Epoch mean losses\n\n")
-        f.write("| epoch | mean_loss |\n")
-        f.write("| --- | --- |\n")
-        for i, l in enumerate(epoch_losses):
-            f.write(f"| {i} | {l:.6f} |\n")
+        f.write(f"- lr: {args.lr}\n")
+        f.write(f"- best_loss: {best_loss:.6f}\n")
+        f.write(f"- best_ckpt: `{best_path}`\n\n")
+        f.write("## Loss history\n\n")
+        f.write("```json\n")
+        f.write(json.dumps(history, indent=2))
+        f.write("\n```")
+
+    print(f"Training done. Best ckpt saved to: {best_path}")
 
 
-def parse_args():
+def main():
     parser = argparse.ArgumentParser()
-
-    parser.add_argument("--data_root", type=str, default="./data")
-    parser.add_argument("--out_root", type=str, default="./pure_model")
-
-    parser.add_argument("--batch_size", type=int, default=256)
-    parser.add_argument("--epochs", type=int, default=20)
-    parser.add_argument("--num_workers", type=int, default=4)
-
-    parser.add_argument("--num_train_timesteps", type=int, default=1000)
-    parser.add_argument("--beta_start", type=float, default=0.0001)
-    parser.add_argument("--beta_end", type=float, default=0.02)
-
-    parser.add_argument("--base_channels", type=int, default=128)
-    parser.add_argument("--channel_mults", nargs="+", type=int, default=[1, 2, 2, 4])
-    parser.add_argument("--time_emb_dim", type=int, default=256)
-
+    parser.add_argument("--config", type=str, default="cifar10.yml")
+    parser.add_argument("--data_root", type=str, default=r"C:\Users\17007\Desktop\PDDM\data")
+    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=2e-4)
-    parser.add_argument("--weight_decay", type=float, default=0.0)
+    # Windows 下建议默认 0，有需要你可以改成 2/4 再试
+    parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--grad_clip", type=float, default=1.0)
-
-    parser.add_argument("--log_interval", type=int, default=100)
-
     parser.add_argument("--seed", type=int, default=42)
-
-    return parser.parse_args()
+    args = parser.parse_args()
+    train(args)
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    train(args)
+    main()

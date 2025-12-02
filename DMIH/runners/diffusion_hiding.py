@@ -39,6 +39,7 @@ class Diffusion(object):
         self.psl_lr = config.hiding.select_lr
         self.key = config.hiding.seed
         self.hf_model_id = getattr(self.args, "hf_model_id", None)
+        self.base_ckpt = getattr(args, "base_ckpt", "")
         self.use_hf_teacher = self.hf_model_id is not None
         if not os.path.exists(self.args.output_folder):
             os.makedirs(self.args.output_folder)
@@ -83,21 +84,44 @@ class Diffusion(object):
         self.secret_img = torch.cat(images, dim=0)
         torch.manual_seed(self.key)
         self.zs = torch.randn_like(self.secret_img, memory_format=torch.contiguous_format).to(self.device)
-        torch.save(self.zs, os.path.join(self.args.output_folder,'zs.pt'))
+        torch.save(self.zs, os.path.join(self.args.output_folder, "zs.pt"))
 
-        
-        if self.config.data.dataset == "CIFAR10":
-            name = "cifar10"
-        elif self.config.data.dataset == "LSUN":
-            name = f"lsun_{self.config.data.category}"
+        # ---------------------------
+        # 选择基座 checkpoint 的逻辑
+        # 优先级：
+        # 1) 用户通过 --base_ckpt 提供的纯净模型
+        # 2) （可选）huggingface 模型 id
+        # 3) 退回原来的 ema_cifar10 / ema_lsun_xxx ckpt
+        # ---------------------------
+        self.ckpt = None
+
+        # 1) 用户自定义 base_ckpt（你现在就是用这个）
+        self.base_ckpt = getattr(self.args, "base_ckpt", None)
+        if self.base_ckpt is not None:
+            print(f"[Diffusion] Using user-provided base_ckpt: {self.base_ckpt}")
+            self.ckpt = self.base_ckpt
+
+        # 2) （可选）支持 hf_model_id，将来如果又想从 diffusers 拉模型，可以在这里处理
+        #    现在你用的是自己训练的 pure_model，所以这里不会进
+        elif getattr(self.args, "hf_model_id", None) is not None:
+            from diffusers import DDPMPipeline
+            self.hf_model_id = self.args.hf_model_id
+            print(f"[Diffusion] Using HuggingFace model as base: {self.hf_model_id}")
+            pipe = DDPMPipeline.from_pretrained(self.hf_model_id)
+            # 如果之后要用 HF 的 UNet，你可以加一个 self.hf_unet = pipe.unet 之类的
+            # 目前你的流程还是用本地 Model(config)，所以这里只是占位
+
+        # 3) 否则走回原来的 ema_xxx 逻辑
         else:
-            raise ValueError
-
-        # 只有在不用 HF teacher 的时候才需要本地 ema ckpt
-        if not self.use_hf_teacher:
+            if self.config.data.dataset == "CIFAR10":
+                name = "cifar10"
+            elif self.config.data.dataset == "LSUN":
+                name = f"lsun_{self.config.data.category}"
+            else:
+                raise ValueError(f"Unknown dataset: {self.config.data.dataset}")
             self.ckpt = get_ckpt_path(f"ema_{name}")
-        else:
-            self.ckpt = None
+            print(f"[Diffusion] Using default ema checkpoint: {self.ckpt}")
+
 
 
     def param_select(self):            

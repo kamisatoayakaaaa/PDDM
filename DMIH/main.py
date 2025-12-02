@@ -64,6 +64,12 @@ def parse_args_and_config():
         default=None,
         help="(可选) HuggingFace 预训练扩散模型 id，例如 'google/ddpm-cifar10-32'"
     )
+    parser.add_argument(
+    "--base_ckpt",
+    type=str,
+    default="",
+    help="本地 diffusion 基座模型的 ckpt 路径（.pth），若为空则使用默认/官方权重"
+)
 
     args = parser.parse_args()
     with open(os.path.join("configs", args.config), "r") as f:
