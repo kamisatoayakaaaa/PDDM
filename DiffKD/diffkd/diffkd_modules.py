@@ -137,17 +137,21 @@ class DDIMPipeline:
 class Bottleneck(nn.Module):
     def __init__(self, in_channels, out_channels, reduction=4):
         super().__init__()
+        # 避免 in_channels 太小导致 /reduction 变成 0
+        hidden_channels = max(in_channels // reduction, 1)
+
         self.block = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels // reduction, 1),
-            nn.BatchNorm2d(in_channels // reduction),
+            nn.Conv2d(in_channels, hidden_channels, 1),
+            nn.BatchNorm2d(hidden_channels),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels // reduction, in_channels // reduction, 3, padding=1),
-            nn.BatchNorm2d(in_channels // reduction),
+            nn.Conv2d(hidden_channels, hidden_channels, 3, padding=1),
+            nn.BatchNorm2d(hidden_channels),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels // reduction, out_channels, 1),
+            nn.Conv2d(hidden_channels, out_channels, 1),
             nn.BatchNorm2d(out_channels),
         )
 
     def forward(self, x):
         out = self.block(x)
         return out + x
+
