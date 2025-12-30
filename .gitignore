@@ -48,3 +48,10 @@ DMIH/experiments/*/checkpoints/
 # ---------------------------------
 *.npz
 *.npy
+data/
+*.tar.gz
+*.zip
+*.pth
+*.pt
+*.ckpt
+distill_ckpts/

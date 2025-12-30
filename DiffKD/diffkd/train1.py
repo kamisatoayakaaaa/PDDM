@@ -96,7 +96,7 @@ def parse_args():
         default=r"pure_model\train2\best.pth",
         help="学生模型 ckpt 路径（可以是 full model 或 state_dict）",
     )
-    p.add_argument("--epochs", type=int, default=20)
+    p.add_argument("--epochs", type=int, default=1)
     p.add_argument("--batch_size", type=int, default=128)
     p.add_argument("--num_workers", type=int, default=4)
     p.add_argument("--stage", type=int, choices=[1, 2, 3], default=1)

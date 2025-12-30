@@ -19,8 +19,8 @@ def cal_ext_acc(ref="", test=""):
 
     psnr_z = psnr(ref_img, test_img)
 
-    ref_img_ = torch.tensor(ref_img).unsqueeze(0).unsqueeze(0).float()
-    test_img_ = torch.tensor(test_img).unsqueeze(0).unsqueeze(0).float()
+    ref_img_ = torch.tensor(ref_img).unsqueeze(0).float()
+    test_img_ = torch.tensor(test_img).unsqueeze(0).float()
 
     ssim_z = ssim(test_img_, ref_img_, data_range=255, size_average=False)
 
