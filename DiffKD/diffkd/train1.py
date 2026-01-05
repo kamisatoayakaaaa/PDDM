@@ -1,6 +1,6 @@
-#蒸馏从此开始，直接使用python train1.py
 import argparse
 import copy
+import os
 
 import torch
 import torch.nn.functional as F
@@ -8,9 +8,11 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from diffusers import DDPMPipeline
+from tqdm import tqdm
 
 from diffkd import DiffKD
 from timestepconfig import DistillConfig
+
 
 def to_minus_one_to_one(x):
     return x * 2 - 1
@@ -19,7 +21,7 @@ def to_minus_one_to_one(x):
 def build_loader(data_root, batch_size, num_workers):
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Lambda(to_minus_one_to_one),  # 用顶层函数，能被 pickle
+        transforms.Lambda(to_minus_one_to_one),
     ])
     dataset = datasets.CIFAR10(
         root=data_root,
@@ -35,6 +37,7 @@ def build_loader(data_root, batch_size, num_workers):
         pin_memory=True,
     )
     return loader
+
 
 def build_teacher(device):
     pipe = DDPMPipeline.from_pretrained("google/ddpm-cifar10-32")
@@ -56,8 +59,6 @@ def build_student(student_ckpt, teacher_unet: nn.Module, device):
         missing, unexpected = student.load_state_dict(obj, strict=False)
         if missing or unexpected:
             print(f"Loaded student checkpoint with {len(missing)} missing and {len(unexpected)} unexpected keys (strict=False).")
-            # 如果你连这句话也不想要，直接整段删掉就行
-
     else:
         raise TypeError(f"Unsupported checkpoint type: {type(obj)}")
 
@@ -70,7 +71,7 @@ def build_cfg(stage, lambda_trans, lambda_score, lr):
     elif stage == 2:
         ts = [470, 485, 500, 515, 530]
     else:
-        ts = []  # 空则在 DiffKD 里 fallback 到 tau 全时间轴
+        ts = []
 
     cfg = DistillConfig(
         distill_timesteps=ts,
@@ -133,14 +134,11 @@ def main():
     with torch.no_grad():
         t_out = teacher_unet(dummy_x, dummy_t)
         t_feat = t_out.sample if hasattr(t_out, "sample") else t_out
-
-        # 对 student 也做同样处理
-        s_out = student(dummy_x, dummy_t)  # 既然是 UNet2DModel，就用 int 时间步
+        s_out = student(dummy_x, dummy_t)
         s_feat = s_out.sample if hasattr(s_out, "sample") else s_out
 
     student_channels = s_feat.shape[1]
     teacher_channels = t_feat.shape[1]
-
 
     num_train_timesteps = getattr(scheduler, "num_train_timesteps", None)
     if num_train_timesteps is None and hasattr(scheduler, "config"):
@@ -176,7 +174,6 @@ def main():
     optimizer = torch.optim.Adam(params, lr=cfg.lr)
 
     if args.save_dir is not None:
-        import os
         os.makedirs(args.save_dir, exist_ok=True)
 
     for epoch in range(1, args.epochs + 1):
@@ -192,7 +189,8 @@ def main():
         total_rec = 0.0
         steps = 0
 
-        for x, _ in loader:
+        pbar = tqdm(loader, desc=f"epoch {epoch}/{args.epochs}", dynamic_ncols=True)
+        for x, _ in pbar:
             x = x.to(device)
             b = x.size(0)
 
@@ -212,12 +210,11 @@ def main():
 
             if args.freeze_student:
                 with torch.no_grad():
-                    s_out = student(xt, t)   # UNet2DModel 用 long timestep
+                    s_out = student(xt, t)
                     student_feat = s_out.sample if hasattr(s_out, "sample") else s_out
             else:
                 s_out = student(xt, t)
                 student_feat = s_out.sample if hasattr(s_out, "sample") else s_out
-
 
             refined, t_feat_used, ddim_loss, rec_loss = distiller(student_feat, teacher_feat)
 
@@ -233,11 +230,22 @@ def main():
             loss.backward()
             optimizer.step()
 
-            total_loss += float(loss.item())
-            total_trans += float(trans_loss.item())
-            total_ddim += float(ddim_loss.item())
+            loss_val = float(loss.item())
+            trans_val = float(trans_loss.item())
+            ddim_val = float(ddim_loss.item())
+
+            total_loss += loss_val
+            total_trans += trans_val
+            total_ddim += ddim_val
             total_rec += rec_val
             steps += 1
+
+            pbar.set_postfix(
+                loss=f"{loss_val:.4f}",
+                trans=f"{trans_val:.4f}",
+                ddim=f"{ddim_val:.4f}",
+                rec=f"{rec_val:.4f}",
+            )
 
         mean_loss = total_loss / steps
         mean_trans = total_trans / steps

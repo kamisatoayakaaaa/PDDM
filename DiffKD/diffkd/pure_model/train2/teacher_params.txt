@@ -1,0 +1,341 @@
+ckpt: C:\Users\17007\Desktop\PDDM\PDDM\DiffKD\diffkd\pure_model\train2\best.pth
+tensors: 328
+total_numel: 35746307
+top_prefixes(numel):
+  up: 22330880
+  down: 10190720
+  mid: 2888704
+  temb: 328704
+  conv_in: 3584
+  conv_out: 3459
+  norm_out: 256
+
+name	shape	dtype	numel
+conv_in.bias	(128,)	torch.float32	128
+conv_in.weight	(128, 3, 3, 3)	torch.float32	3456
+conv_out.bias	(3,)	torch.float32	3
+conv_out.weight	(3, 128, 3, 3)	torch.float32	3456
+down.0.block.0.conv1.bias	(128,)	torch.float32	128
+down.0.block.0.conv1.weight	(128, 128, 3, 3)	torch.float32	147456
+down.0.block.0.conv2.bias	(128,)	torch.float32	128
+down.0.block.0.conv2.weight	(128, 128, 3, 3)	torch.float32	147456
+down.0.block.0.norm1.bias	(128,)	torch.float32	128
+down.0.block.0.norm1.weight	(128,)	torch.float32	128
+down.0.block.0.norm2.bias	(128,)	torch.float32	128
+down.0.block.0.norm2.weight	(128,)	torch.float32	128
+down.0.block.0.temb_proj.bias	(128,)	torch.float32	128
+down.0.block.0.temb_proj.weight	(128, 512)	torch.float32	65536
+down.0.block.1.conv1.bias	(128,)	torch.float32	128
+down.0.block.1.conv1.weight	(128, 128, 3, 3)	torch.float32	147456
+down.0.block.1.conv2.bias	(128,)	torch.float32	128
+down.0.block.1.conv2.weight	(128, 128, 3, 3)	torch.float32	147456
+down.0.block.1.norm1.bias	(128,)	torch.float32	128
+down.0.block.1.norm1.weight	(128,)	torch.float32	128
+down.0.block.1.norm2.bias	(128,)	torch.float32	128
+down.0.block.1.norm2.weight	(128,)	torch.float32	128
+down.0.block.1.temb_proj.bias	(128,)	torch.float32	128
+down.0.block.1.temb_proj.weight	(128, 512)	torch.float32	65536
+down.0.downsample.conv.bias	(128,)	torch.float32	128
+down.0.downsample.conv.weight	(128, 128, 3, 3)	torch.float32	147456
+down.1.attn.0.k.bias	(256,)	torch.float32	256
+down.1.attn.0.k.weight	(256, 256, 1, 1)	torch.float32	65536
+down.1.attn.0.norm.bias	(256,)	torch.float32	256
+down.1.attn.0.norm.weight	(256,)	torch.float32	256
+down.1.attn.0.proj_out.bias	(256,)	torch.float32	256
+down.1.attn.0.proj_out.weight	(256, 256, 1, 1)	torch.float32	65536
+down.1.attn.0.q.bias	(256,)	torch.float32	256
+down.1.attn.0.q.weight	(256, 256, 1, 1)	torch.float32	65536
+down.1.attn.0.v.bias	(256,)	torch.float32	256
+down.1.attn.0.v.weight	(256, 256, 1, 1)	torch.float32	65536
+down.1.attn.1.k.bias	(256,)	torch.float32	256
+down.1.attn.1.k.weight	(256, 256, 1, 1)	torch.float32	65536
+down.1.attn.1.norm.bias	(256,)	torch.float32	256
+down.1.attn.1.norm.weight	(256,)	torch.float32	256
+down.1.attn.1.proj_out.bias	(256,)	torch.float32	256
+down.1.attn.1.proj_out.weight	(256, 256, 1, 1)	torch.float32	65536
+down.1.attn.1.q.bias	(256,)	torch.float32	256
+down.1.attn.1.q.weight	(256, 256, 1, 1)	torch.float32	65536
+down.1.attn.1.v.bias	(256,)	torch.float32	256
+down.1.attn.1.v.weight	(256, 256, 1, 1)	torch.float32	65536
+down.1.block.0.conv1.bias	(256,)	torch.float32	256
+down.1.block.0.conv1.weight	(256, 128, 3, 3)	torch.float32	294912
+down.1.block.0.conv2.bias	(256,)	torch.float32	256
+down.1.block.0.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+down.1.block.0.nin_shortcut.bias	(256,)	torch.float32	256
+down.1.block.0.nin_shortcut.weight	(256, 128, 1, 1)	torch.float32	32768
+down.1.block.0.norm1.bias	(128,)	torch.float32	128
+down.1.block.0.norm1.weight	(128,)	torch.float32	128
+down.1.block.0.norm2.bias	(256,)	torch.float32	256
+down.1.block.0.norm2.weight	(256,)	torch.float32	256
+down.1.block.0.temb_proj.bias	(256,)	torch.float32	256
+down.1.block.0.temb_proj.weight	(256, 512)	torch.float32	131072
+down.1.block.1.conv1.bias	(256,)	torch.float32	256
+down.1.block.1.conv1.weight	(256, 256, 3, 3)	torch.float32	589824
+down.1.block.1.conv2.bias	(256,)	torch.float32	256
+down.1.block.1.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+down.1.block.1.norm1.bias	(256,)	torch.float32	256
+down.1.block.1.norm1.weight	(256,)	torch.float32	256
+down.1.block.1.norm2.bias	(256,)	torch.float32	256
+down.1.block.1.norm2.weight	(256,)	torch.float32	256
+down.1.block.1.temb_proj.bias	(256,)	torch.float32	256
+down.1.block.1.temb_proj.weight	(256, 512)	torch.float32	131072
+down.1.downsample.conv.bias	(256,)	torch.float32	256
+down.1.downsample.conv.weight	(256, 256, 3, 3)	torch.float32	589824
+down.2.block.0.conv1.bias	(256,)	torch.float32	256
+down.2.block.0.conv1.weight	(256, 256, 3, 3)	torch.float32	589824
+down.2.block.0.conv2.bias	(256,)	torch.float32	256
+down.2.block.0.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+down.2.block.0.norm1.bias	(256,)	torch.float32	256
+down.2.block.0.norm1.weight	(256,)	torch.float32	256
+down.2.block.0.norm2.bias	(256,)	torch.float32	256
+down.2.block.0.norm2.weight	(256,)	torch.float32	256
+down.2.block.0.temb_proj.bias	(256,)	torch.float32	256
+down.2.block.0.temb_proj.weight	(256, 512)	torch.float32	131072
+down.2.block.1.conv1.bias	(256,)	torch.float32	256
+down.2.block.1.conv1.weight	(256, 256, 3, 3)	torch.float32	589824
+down.2.block.1.conv2.bias	(256,)	torch.float32	256
+down.2.block.1.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+down.2.block.1.norm1.bias	(256,)	torch.float32	256
+down.2.block.1.norm1.weight	(256,)	torch.float32	256
+down.2.block.1.norm2.bias	(256,)	torch.float32	256
+down.2.block.1.norm2.weight	(256,)	torch.float32	256
+down.2.block.1.temb_proj.bias	(256,)	torch.float32	256
+down.2.block.1.temb_proj.weight	(256, 512)	torch.float32	131072
+down.2.downsample.conv.bias	(256,)	torch.float32	256
+down.2.downsample.conv.weight	(256, 256, 3, 3)	torch.float32	589824
+down.3.block.0.conv1.bias	(256,)	torch.float32	256
+down.3.block.0.conv1.weight	(256, 256, 3, 3)	torch.float32	589824
+down.3.block.0.conv2.bias	(256,)	torch.float32	256
+down.3.block.0.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+down.3.block.0.norm1.bias	(256,)	torch.float32	256
+down.3.block.0.norm1.weight	(256,)	torch.float32	256
+down.3.block.0.norm2.bias	(256,)	torch.float32	256
+down.3.block.0.norm2.weight	(256,)	torch.float32	256
+down.3.block.0.temb_proj.bias	(256,)	torch.float32	256
+down.3.block.0.temb_proj.weight	(256, 512)	torch.float32	131072
+down.3.block.1.conv1.bias	(256,)	torch.float32	256
+down.3.block.1.conv1.weight	(256, 256, 3, 3)	torch.float32	589824
+down.3.block.1.conv2.bias	(256,)	torch.float32	256
+down.3.block.1.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+down.3.block.1.norm1.bias	(256,)	torch.float32	256
+down.3.block.1.norm1.weight	(256,)	torch.float32	256
+down.3.block.1.norm2.bias	(256,)	torch.float32	256
+down.3.block.1.norm2.weight	(256,)	torch.float32	256
+down.3.block.1.temb_proj.bias	(256,)	torch.float32	256
+down.3.block.1.temb_proj.weight	(256, 512)	torch.float32	131072
+mid.attn_1.k.bias	(256,)	torch.float32	256
+mid.attn_1.k.weight	(256, 256, 1, 1)	torch.float32	65536
+mid.attn_1.norm.bias	(256,)	torch.float32	256
+mid.attn_1.norm.weight	(256,)	torch.float32	256
+mid.attn_1.proj_out.bias	(256,)	torch.float32	256
+mid.attn_1.proj_out.weight	(256, 256, 1, 1)	torch.float32	65536
+mid.attn_1.q.bias	(256,)	torch.float32	256
+mid.attn_1.q.weight	(256, 256, 1, 1)	torch.float32	65536
+mid.attn_1.v.bias	(256,)	torch.float32	256
+mid.attn_1.v.weight	(256, 256, 1, 1)	torch.float32	65536
+mid.block_1.conv1.bias	(256,)	torch.float32	256
+mid.block_1.conv1.weight	(256, 256, 3, 3)	torch.float32	589824
+mid.block_1.conv2.bias	(256,)	torch.float32	256
+mid.block_1.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+mid.block_1.norm1.bias	(256,)	torch.float32	256
+mid.block_1.norm1.weight	(256,)	torch.float32	256
+mid.block_1.norm2.bias	(256,)	torch.float32	256
+mid.block_1.norm2.weight	(256,)	torch.float32	256
+mid.block_1.temb_proj.bias	(256,)	torch.float32	256
+mid.block_1.temb_proj.weight	(256, 512)	torch.float32	131072
+mid.block_2.conv1.bias	(256,)	torch.float32	256
+mid.block_2.conv1.weight	(256, 256, 3, 3)	torch.float32	589824
+mid.block_2.conv2.bias	(256,)	torch.float32	256
+mid.block_2.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+mid.block_2.norm1.bias	(256,)	torch.float32	256
+mid.block_2.norm1.weight	(256,)	torch.float32	256
+mid.block_2.norm2.bias	(256,)	torch.float32	256
+mid.block_2.norm2.weight	(256,)	torch.float32	256
+mid.block_2.temb_proj.bias	(256,)	torch.float32	256
+mid.block_2.temb_proj.weight	(256, 512)	torch.float32	131072
+norm_out.bias	(128,)	torch.float32	128
+norm_out.weight	(128,)	torch.float32	128
+temb.dense.0.bias	(512,)	torch.float32	512
+temb.dense.0.weight	(512, 128)	torch.float32	65536
+temb.dense.1.bias	(512,)	torch.float32	512
+temb.dense.1.weight	(512, 512)	torch.float32	262144
+up.0.block.0.conv1.bias	(128,)	torch.float32	128
+up.0.block.0.conv1.weight	(128, 384, 3, 3)	torch.float32	442368
+up.0.block.0.conv2.bias	(128,)	torch.float32	128
+up.0.block.0.conv2.weight	(128, 128, 3, 3)	torch.float32	147456
+up.0.block.0.nin_shortcut.bias	(128,)	torch.float32	128
+up.0.block.0.nin_shortcut.weight	(128, 384, 1, 1)	torch.float32	49152
+up.0.block.0.norm1.bias	(384,)	torch.float32	384
+up.0.block.0.norm1.weight	(384,)	torch.float32	384
+up.0.block.0.norm2.bias	(128,)	torch.float32	128
+up.0.block.0.norm2.weight	(128,)	torch.float32	128
+up.0.block.0.temb_proj.bias	(128,)	torch.float32	128
+up.0.block.0.temb_proj.weight	(128, 512)	torch.float32	65536
+up.0.block.1.conv1.bias	(128,)	torch.float32	128
+up.0.block.1.conv1.weight	(128, 256, 3, 3)	torch.float32	294912
+up.0.block.1.conv2.bias	(128,)	torch.float32	128
+up.0.block.1.conv2.weight	(128, 128, 3, 3)	torch.float32	147456
+up.0.block.1.nin_shortcut.bias	(128,)	torch.float32	128
+up.0.block.1.nin_shortcut.weight	(128, 256, 1, 1)	torch.float32	32768
+up.0.block.1.norm1.bias	(256,)	torch.float32	256
+up.0.block.1.norm1.weight	(256,)	torch.float32	256
+up.0.block.1.norm2.bias	(128,)	torch.float32	128
+up.0.block.1.norm2.weight	(128,)	torch.float32	128
+up.0.block.1.temb_proj.bias	(128,)	torch.float32	128
+up.0.block.1.temb_proj.weight	(128, 512)	torch.float32	65536
+up.0.block.2.conv1.bias	(128,)	torch.float32	128
+up.0.block.2.conv1.weight	(128, 256, 3, 3)	torch.float32	294912
+up.0.block.2.conv2.bias	(128,)	torch.float32	128
+up.0.block.2.conv2.weight	(128, 128, 3, 3)	torch.float32	147456
+up.0.block.2.nin_shortcut.bias	(128,)	torch.float32	128
+up.0.block.2.nin_shortcut.weight	(128, 256, 1, 1)	torch.float32	32768
+up.0.block.2.norm1.bias	(256,)	torch.float32	256
+up.0.block.2.norm1.weight	(256,)	torch.float32	256
+up.0.block.2.norm2.bias	(128,)	torch.float32	128
+up.0.block.2.norm2.weight	(128,)	torch.float32	128
+up.0.block.2.temb_proj.bias	(128,)	torch.float32	128
+up.0.block.2.temb_proj.weight	(128, 512)	torch.float32	65536
+up.1.attn.0.k.bias	(256,)	torch.float32	256
+up.1.attn.0.k.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.0.norm.bias	(256,)	torch.float32	256
+up.1.attn.0.norm.weight	(256,)	torch.float32	256
+up.1.attn.0.proj_out.bias	(256,)	torch.float32	256
+up.1.attn.0.proj_out.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.0.q.bias	(256,)	torch.float32	256
+up.1.attn.0.q.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.0.v.bias	(256,)	torch.float32	256
+up.1.attn.0.v.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.1.k.bias	(256,)	torch.float32	256
+up.1.attn.1.k.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.1.norm.bias	(256,)	torch.float32	256
+up.1.attn.1.norm.weight	(256,)	torch.float32	256
+up.1.attn.1.proj_out.bias	(256,)	torch.float32	256
+up.1.attn.1.proj_out.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.1.q.bias	(256,)	torch.float32	256
+up.1.attn.1.q.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.1.v.bias	(256,)	torch.float32	256
+up.1.attn.1.v.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.2.k.bias	(256,)	torch.float32	256
+up.1.attn.2.k.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.2.norm.bias	(256,)	torch.float32	256
+up.1.attn.2.norm.weight	(256,)	torch.float32	256
+up.1.attn.2.proj_out.bias	(256,)	torch.float32	256
+up.1.attn.2.proj_out.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.2.q.bias	(256,)	torch.float32	256
+up.1.attn.2.q.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.attn.2.v.bias	(256,)	torch.float32	256
+up.1.attn.2.v.weight	(256, 256, 1, 1)	torch.float32	65536
+up.1.block.0.conv1.bias	(256,)	torch.float32	256
+up.1.block.0.conv1.weight	(256, 512, 3, 3)	torch.float32	1179648
+up.1.block.0.conv2.bias	(256,)	torch.float32	256
+up.1.block.0.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+up.1.block.0.nin_shortcut.bias	(256,)	torch.float32	256
+up.1.block.0.nin_shortcut.weight	(256, 512, 1, 1)	torch.float32	131072
+up.1.block.0.norm1.bias	(512,)	torch.float32	512
+up.1.block.0.norm1.weight	(512,)	torch.float32	512
+up.1.block.0.norm2.bias	(256,)	torch.float32	256
+up.1.block.0.norm2.weight	(256,)	torch.float32	256
+up.1.block.0.temb_proj.bias	(256,)	torch.float32	256
+up.1.block.0.temb_proj.weight	(256, 512)	torch.float32	131072
+up.1.block.1.conv1.bias	(256,)	torch.float32	256
+up.1.block.1.conv1.weight	(256, 512, 3, 3)	torch.float32	1179648
+up.1.block.1.conv2.bias	(256,)	torch.float32	256
+up.1.block.1.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+up.1.block.1.nin_shortcut.bias	(256,)	torch.float32	256
+up.1.block.1.nin_shortcut.weight	(256, 512, 1, 1)	torch.float32	131072
+up.1.block.1.norm1.bias	(512,)	torch.float32	512
+up.1.block.1.norm1.weight	(512,)	torch.float32	512
+up.1.block.1.norm2.bias	(256,)	torch.float32	256
+up.1.block.1.norm2.weight	(256,)	torch.float32	256
+up.1.block.1.temb_proj.bias	(256,)	torch.float32	256
+up.1.block.1.temb_proj.weight	(256, 512)	torch.float32	131072
+up.1.block.2.conv1.bias	(256,)	torch.float32	256
+up.1.block.2.conv1.weight	(256, 384, 3, 3)	torch.float32	884736
+up.1.block.2.conv2.bias	(256,)	torch.float32	256
+up.1.block.2.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+up.1.block.2.nin_shortcut.bias	(256,)	torch.float32	256
+up.1.block.2.nin_shortcut.weight	(256, 384, 1, 1)	torch.float32	98304
+up.1.block.2.norm1.bias	(384,)	torch.float32	384
+up.1.block.2.norm1.weight	(384,)	torch.float32	384
+up.1.block.2.norm2.bias	(256,)	torch.float32	256
+up.1.block.2.norm2.weight	(256,)	torch.float32	256
+up.1.block.2.temb_proj.bias	(256,)	torch.float32	256
+up.1.block.2.temb_proj.weight	(256, 512)	torch.float32	131072
+up.1.upsample.conv.bias	(256,)	torch.float32	256
+up.1.upsample.conv.weight	(256, 256, 3, 3)	torch.float32	589824
+up.2.block.0.conv1.bias	(256,)	torch.float32	256
+up.2.block.0.conv1.weight	(256, 512, 3, 3)	torch.float32	1179648
+up.2.block.0.conv2.bias	(256,)	torch.float32	256
+up.2.block.0.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+up.2.block.0.nin_shortcut.bias	(256,)	torch.float32	256
+up.2.block.0.nin_shortcut.weight	(256, 512, 1, 1)	torch.float32	131072
+up.2.block.0.norm1.bias	(512,)	torch.float32	512
+up.2.block.0.norm1.weight	(512,)	torch.float32	512
+up.2.block.0.norm2.bias	(256,)	torch.float32	256
+up.2.block.0.norm2.weight	(256,)	torch.float32	256
+up.2.block.0.temb_proj.bias	(256,)	torch.float32	256
+up.2.block.0.temb_proj.weight	(256, 512)	torch.float32	131072
+up.2.block.1.conv1.bias	(256,)	torch.float32	256
+up.2.block.1.conv1.weight	(256, 512, 3, 3)	torch.float32	1179648
+up.2.block.1.conv2.bias	(256,)	torch.float32	256
+up.2.block.1.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+up.2.block.1.nin_shortcut.bias	(256,)	torch.float32	256
+up.2.block.1.nin_shortcut.weight	(256, 512, 1, 1)	torch.float32	131072
+up.2.block.1.norm1.bias	(512,)	torch.float32	512
+up.2.block.1.norm1.weight	(512,)	torch.float32	512
+up.2.block.1.norm2.bias	(256,)	torch.float32	256
+up.2.block.1.norm2.weight	(256,)	torch.float32	256
+up.2.block.1.temb_proj.bias	(256,)	torch.float32	256
+up.2.block.1.temb_proj.weight	(256, 512)	torch.float32	131072
+up.2.block.2.conv1.bias	(256,)	torch.float32	256
+up.2.block.2.conv1.weight	(256, 512, 3, 3)	torch.float32	1179648
+up.2.block.2.conv2.bias	(256,)	torch.float32	256
+up.2.block.2.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+up.2.block.2.nin_shortcut.bias	(256,)	torch.float32	256
+up.2.block.2.nin_shortcut.weight	(256, 512, 1, 1)	torch.float32	131072
+up.2.block.2.norm1.bias	(512,)	torch.float32	512
+up.2.block.2.norm1.weight	(512,)	torch.float32	512
+up.2.block.2.norm2.bias	(256,)	torch.float32	256
+up.2.block.2.norm2.weight	(256,)	torch.float32	256
+up.2.block.2.temb_proj.bias	(256,)	torch.float32	256
+up.2.block.2.temb_proj.weight	(256, 512)	torch.float32	131072
+up.2.upsample.conv.bias	(256,)	torch.float32	256
+up.2.upsample.conv.weight	(256, 256, 3, 3)	torch.float32	589824
+up.3.block.0.conv1.bias	(256,)	torch.float32	256
+up.3.block.0.conv1.weight	(256, 512, 3, 3)	torch.float32	1179648
+up.3.block.0.conv2.bias	(256,)	torch.float32	256
+up.3.block.0.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+up.3.block.0.nin_shortcut.bias	(256,)	torch.float32	256
+up.3.block.0.nin_shortcut.weight	(256, 512, 1, 1)	torch.float32	131072
+up.3.block.0.norm1.bias	(512,)	torch.float32	512
+up.3.block.0.norm1.weight	(512,)	torch.float32	512
+up.3.block.0.norm2.bias	(256,)	torch.float32	256
+up.3.block.0.norm2.weight	(256,)	torch.float32	256
+up.3.block.0.temb_proj.bias	(256,)	torch.float32	256
+up.3.block.0.temb_proj.weight	(256, 512)	torch.float32	131072
+up.3.block.1.conv1.bias	(256,)	torch.float32	256
+up.3.block.1.conv1.weight	(256, 512, 3, 3)	torch.float32	1179648
+up.3.block.1.conv2.bias	(256,)	torch.float32	256
+up.3.block.1.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+up.3.block.1.nin_shortcut.bias	(256,)	torch.float32	256
+up.3.block.1.nin_shortcut.weight	(256, 512, 1, 1)	torch.float32	131072
+up.3.block.1.norm1.bias	(512,)	torch.float32	512
+up.3.block.1.norm1.weight	(512,)	torch.float32	512
+up.3.block.1.norm2.bias	(256,)	torch.float32	256
+up.3.block.1.norm2.weight	(256,)	torch.float32	256
+up.3.block.1.temb_proj.bias	(256,)	torch.float32	256
+up.3.block.1.temb_proj.weight	(256, 512)	torch.float32	131072
+up.3.block.2.conv1.bias	(256,)	torch.float32	256
+up.3.block.2.conv1.weight	(256, 512, 3, 3)	torch.float32	1179648
+up.3.block.2.conv2.bias	(256,)	torch.float32	256
+up.3.block.2.conv2.weight	(256, 256, 3, 3)	torch.float32	589824
+up.3.block.2.nin_shortcut.bias	(256,)	torch.float32	256
+up.3.block.2.nin_shortcut.weight	(256, 512, 1, 1)	torch.float32	131072
+up.3.block.2.norm1.bias	(512,)	torch.float32	512
+up.3.block.2.norm1.weight	(512,)	torch.float32	512
+up.3.block.2.norm2.bias	(256,)	torch.float32	256
+up.3.block.2.norm2.weight	(256,)	torch.float32	256
+up.3.block.2.temb_proj.bias	(256,)	torch.float32	256
+up.3.block.2.temb_proj.weight	(256, 512)	torch.float32	131072
+up.3.upsample.conv.bias	(256,)	torch.float32	256
+up.3.upsample.conv.weight	(256, 256, 3, 3)	torch.float32	589824
