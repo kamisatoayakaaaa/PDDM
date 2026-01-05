@@ -1,0 +1,50 @@
+ckpt: C:\Users\17007\Desktop\PDDM\PDDM\DiffKD\diffkd\pure_model\train2\best.pth
+in_channels: 3
+out_channels: 3
+base_channels: 128
+time_emb_dim: 512
+num_down_stages: 4
+num_up_stages: 4
+has_mid: true
+down:
+- channels: 128
+  num_blocks: 2
+  num_attn: 0
+  has_downsample: true
+  has_upsample: false
+- channels: 256
+  num_blocks: 2
+  num_attn: 2
+  has_downsample: true
+  has_upsample: false
+- channels: 256
+  num_blocks: 2
+  num_attn: 0
+  has_downsample: true
+  has_upsample: false
+- channels: 256
+  num_blocks: 2
+  num_attn: 0
+  has_downsample: false
+  has_upsample: false
+up:
+- channels: 128
+  num_blocks: 3
+  num_attn: 0
+  has_downsample: false
+  has_upsample: false
+- channels: 256
+  num_blocks: 3
+  num_attn: 3
+  has_downsample: false
+  has_upsample: true
+- channels: 256
+  num_blocks: 3
+  num_attn: 0
+  has_downsample: false
+  has_upsample: true
+- channels: 256
+  num_blocks: 3
+  num_attn: 0
+  has_downsample: false
+  has_upsample: true

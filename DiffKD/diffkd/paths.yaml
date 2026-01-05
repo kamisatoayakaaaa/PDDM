@@ -1,0 +1,21 @@
+teacher_ckpt: C:\Users\17007\Desktop\PDDM\PDDM\DiffKD\diffkd\modelused\teacher\tv2.pth
+student_ckpt: C:\Users\17007\Desktop\PDDM\PDDM\DiffKD\diffkd\modelused\student\best.pth
+
+data_root: C:\Users\17007\Desktop\PDDM\data
+download: false
+
+save_dir: C:\Users\17007\Desktop\PDDM\PDDM\DiffKD\diffkd\distill_ckpts
+device: cuda
+
+image_size: 32
+num_train_timesteps: 1000
+
+epochs: 1
+batch_size: 128
+num_workers: 4
+
+stage: 1
+lambda_trans: 1.0
+lambda_score: 1.0
+lr: 1e-4
+freeze_student: false
