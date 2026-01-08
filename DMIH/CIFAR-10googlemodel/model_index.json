@@ -1,0 +1,12 @@
+{
+  "_class_name": "DDPMPipeline",
+  "_module": "modeling_ddpm.py",
+  "scheduler": [
+    "diffusers",
+    "DDPMScheduler"
+  ],
+  "unet": [
+    "diffusers",
+    "UNet2DModel"
+  ]
+}

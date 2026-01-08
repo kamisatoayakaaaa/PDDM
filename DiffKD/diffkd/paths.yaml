@@ -1,0 +1,22 @@
+teacher_ckpt: /root/PDDM-main/DiffKD/diffkd/modelused/teacher/tv2.pth
+student_ckpt: /root/PDDM-main/DiffKD/diffkd/modelused/student/best.pth
+
+data_root: /root/PDDM-main/data
+download: false
+
+save_dir: /root/PDDM-main/DiffKD/diffkd/distill_ckpts
+device: cuda
+
+image_size: 32
+num_train_timesteps: 1000
+
+epochs: 10
+batch_size: 128
+num_workers: 4
+
+stage: [167, 333, 500, 667, 833]
+lambda_direct: 1.0
+lambda_trans: 0.2
+lambda_score: 0.05
+lr: 1e-4
+freeze_student: false
